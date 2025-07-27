@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_imap::{Client, Session, types::Fetch};
 use async_native_tls::TlsConnector;
 use futures::TryStreamExt;
-use mail_parser::{Message, MessageParser};
+use mail_parser::MessageParser;
 use std::{convert::TryFrom, fmt};
 use tokio::net::TcpStream;
 use tokio_util::compat::TokioAsyncReadCompatExt;
@@ -40,8 +40,16 @@ impl fmt::Display for ParsedEmail {
     }
 }
 
-impl From<&Message<'_>> for ParsedEmail {
-    fn from(parsed: &Message) -> Self {
+impl TryFrom<&Fetch> for ParsedEmail {
+    type Error = anyhow::Error;
+
+    fn try_from(fetch: &Fetch) -> Result<Self, Self::Error> {
+        let body = fetch.body().ok_or_else(|| anyhow!("邮件没有正文内容"))?;
+
+        let parsed = MessageParser::default()
+            .parse(body)
+            .ok_or_else(|| anyhow!("无法解析邮件内容"))?;
+
         let subject = parsed.subject().unwrap_or("(无主题)").to_string();
 
         let from = parsed
@@ -70,26 +78,12 @@ impl From<&Message<'_>> for ParsedEmail {
             "(无内容)".to_string()
         };
 
-        ParsedEmail {
+        Ok(ParsedEmail {
             subject,
             from,
             date,
             body,
-        }
-    }
-}
-
-impl TryFrom<&Fetch> for ParsedEmail {
-    type Error = anyhow::Error;
-
-    fn try_from(fetch: &Fetch) -> Result<Self, Self::Error> {
-        let body = fetch.body().ok_or_else(|| anyhow!("邮件没有正文内容"))?;
-
-        let parsed = MessageParser::default()
-            .parse(body)
-            .ok_or_else(|| anyhow!("无法解析邮件内容"))?;
-
-        Ok(ParsedEmail::from(&parsed))
+        })
     }
 }
 
@@ -101,11 +95,6 @@ impl MailReceiver {
 
     /// 获取最近的邮件
     pub async fn fetch_recent_emails(&self, count: usize) -> Result<Vec<ParsedEmail>> {
-        self.fetch_with_tls(count).await
-    }
-
-    /// 使用 TLS 连接获取邮件
-    async fn fetch_with_tls(&self, count: usize) -> Result<Vec<ParsedEmail>> {
         println!("正在连接到 IMAP 服务器 (TLS)...");
 
         let imap_addr = (self.config.imap.server.as_str(), self.config.imap.port);
