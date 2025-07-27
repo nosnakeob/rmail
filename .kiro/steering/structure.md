@@ -5,16 +5,20 @@
 ```
 rmail/
 ├── config.toml         # 邮件配置文件（不在 git 中）
+├── config.example.toml # 配置文件示例
 ├── .gitignore          # Git 忽略规则
 ├── Cargo.toml          # 项目清单和依赖
 ├── Cargo.lock          # 依赖锁定文件
 ├── README.md           # 项目文档（中文）
+├── .kiro/              # Kiro IDE 配置目录
+│   └── steering/       # 项目指导文件
+│       ├── product.md  # 产品概述
+│       ├── structure.md # 项目结构
+│       └── tech.md     # 技术栈
 ├── src/                # 源代码目录
 │   ├── config.rs       # 配置管理模块
-│   ├── lib.rs          # 库根文件
-│   ├── main.rs         # 应用程序入口
-│   ├── mail_receiver.rs # 邮件接收模块
-│   └── mail_sender.rs  # 邮件发送模块
+│   ├── lib.rs          # 库根文件和测试
+│   └── mail_receiver.rs # 邮件接收模块
 └── target/             # 构建产物（不在 git 中）
 ```
 
@@ -22,11 +26,15 @@ rmail/
 
 ### 核心文件
 
-- **`src/main.rs`**: 应用程序入口点，包含交互式 CLI 菜单
-- **`src/lib.rs`**: 库根文件，导出公共 API
+- **`src/lib.rs`**: 库根文件，导出公共 API 和包含测试代码
 - **`src/config.rs`**: 配置管理模块，处理 TOML 配置文件
-- **`src/mail_receiver.rs`**: IMAP 邮件接收功能
-- **`src/mail_sender.rs`**: SMTP 邮件发送功能
+- **`src/mail_receiver.rs`**: 异步 IMAP 邮件接收功能
+
+### 当前实现状态
+
+- **邮件接收**: 已完成，支持 IMAP 协议和 TLS 连接
+- **邮件发送**: 未实现（预留扩展）
+- **CLI 界面**: 未实现（当前通过测试展示功能）
 
 ### 模块结构
 
@@ -44,10 +52,13 @@ rmail/
 ## 代码组织模式
 
 - **构造器模式**: 使用 `new()` 方法进行结构体初始化
-- **建造者模式**: 用于邮件消息构建
+- **类型转换**: 实现 `TryFrom<&Fetch>` trait 进行安全的邮件解析
+- **显示格式化**: 实现 `Display` trait 用于邮件内容格式化
 - **错误上下文**: 使用中文的描述性错误消息
 - **配置加载**: 在构造器中从 TOML 文件加载配置
 - **配置验证**: 启动时验证配置的完整性和有效性
+- **日志记录**: 使用结构化日志记录操作流程和错误
+- **常量定义**: 使用 `FETCH_RFC822` 等常量替代魔法字符串
 
 ## 语言和交流标准
 
