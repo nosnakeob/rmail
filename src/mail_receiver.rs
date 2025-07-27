@@ -2,12 +2,16 @@ use anyhow::Result;
 use async_imap::{Client, Session, types::Fetch};
 use async_native_tls::TlsConnector;
 use futures::TryStreamExt;
+use log::{info, warn, error};
 use mail_parser::MessageParser;
 use std::{convert::TryFrom, fmt};
 use tokio::net::TcpStream;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use crate::config::Config;
+
+/// IMAP FETCH 命令的 RFC822 参数，用于获取完整的邮件内容
+pub const FETCH_RFC822: &str = "RFC822";
 
 /// 邮件接收器
 pub struct MailReceiver {
@@ -73,7 +77,7 @@ impl TryFrom<&Fetch> for ParsedEmail {
         let body = if let Some(text_body) = parsed.body_text(0) {
             text_body.to_string()
         } else if let Some(html_body) = parsed.body_html(0) {
-            format!("[HTML内容] {}", html_body)
+            format!("[HTML内容] {html_body}")
         } else {
             "(无内容)".to_string()
         };
@@ -95,7 +99,7 @@ impl MailReceiver {
 
     /// 获取最近的邮件
     pub async fn fetch_recent_emails(&self, count: usize) -> Result<Vec<ParsedEmail>> {
-        println!("正在连接到 IMAP 服务器 (TLS)...");
+        info!("正在连接到 IMAP 服务器 (TLS): {}:{}", self.config.imap.server, self.config.imap.port);
 
         let imap_addr = (self.config.imap.server.as_str(), self.config.imap.port);
         let tcp_stream = TcpStream::connect(imap_addr).await?;
@@ -113,7 +117,7 @@ impl MailReceiver {
     where
         T: futures::AsyncRead + futures::AsyncWrite + Unpin + std::fmt::Debug + Send,
     {
-        println!("正在登录...");
+        info!("正在登录到 IMAP 服务器...");
 
         // 登录
         let mut imap_session = client
@@ -121,12 +125,12 @@ impl MailReceiver {
             .await
             .map_err(|e| anyhow!("登录失败: {:?}", e.0))?;
 
-        println!("正在选择收件箱...");
+        info!("正在选择收件箱...");
 
         // 选择收件箱
         imap_session.select("INBOX").await?;
 
-        println!("正在获取邮件列表...");
+        info!("正在获取邮件列表...");
 
         // 搜索最近的邮件
         let messages_set = imap_session.search("ALL").await?;
@@ -134,7 +138,7 @@ impl MailReceiver {
         messages.sort(); // 按邮件 ID 排序
 
         if messages.is_empty() {
-            println!("收件箱中没有邮件");
+            warn!("收件箱中没有邮件");
             imap_session.logout().await?;
             return Ok(vec![]);
         }
@@ -149,15 +153,19 @@ impl MailReceiver {
         let recent_messages = &messages[start_index..];
         let mut parsed_emails = Vec::new();
 
-        println!("正在解析 {} 封邮件...", recent_messages.len());
+        info!("正在解析 {} 封邮件...", recent_messages.len());
 
         for &msg_id in recent_messages {
             match self.fetch_and_parse_email(&mut imap_session, msg_id).await {
-                Ok(email) => parsed_emails.push(email),
-                Err(e) => eprintln!("解析邮件 {} 失败: {}", msg_id, e),
+                Ok(email) => {
+                    info!("成功解析邮件 {msg_id}");
+                    parsed_emails.push(email);
+                },
+                Err(e) => error!("解析邮件 {msg_id} 失败: {e}"),
             }
         }
 
+        info!("邮件获取完成，正在登出...");
         // 登出
         imap_session.logout().await?;
 
@@ -174,7 +182,7 @@ impl MailReceiver {
         T: futures::AsyncRead + futures::AsyncWrite + Unpin + std::fmt::Debug + Send,
     {
         // 获取邮件内容
-        let message_stream = session.fetch(&msg_id.to_string(), "RFC822").await?;
+        let message_stream = session.fetch(&msg_id.to_string(), FETCH_RFC822).await?;
         let messages: Vec<_> = message_stream.try_collect().await?;
 
         if let Some(fetch) = messages.first() {

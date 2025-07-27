@@ -2,15 +2,16 @@
 extern crate anyhow;
 
 pub use crate::config::Config;
-pub use crate::mail_receiver::{MailReceiver, ParsedEmail};
+pub use crate::mail_receiver::{FETCH_RFC822, MailReceiver, ParsedEmail};
 
 pub mod config;
 pub mod mail_receiver;
 
+#[cfg(test)]
 mod tests {
     use super::*;
     use anyhow::Result;
-    use async_imap::{Client, Session};
+    use async_imap::Client;
     use async_native_tls::TlsConnector;
     use futures::{StreamExt, TryStreamExt};
     use tokio::net::TcpStream;
@@ -71,7 +72,7 @@ mod tests {
         messages.sort();
 
         let mut msg_stream = imap_session
-            .fetch(messages[0].to_string(), "RFC822")
+            .fetch(messages[0].to_string(), FETCH_RFC822)
             .await?;
 
         let msg = msg_stream.next().await.unwrap()?;
@@ -85,6 +86,11 @@ mod tests {
 
     #[tokio::test]
     async fn t_get_5_mails() -> Result<()> {
+        // 初始化日志记录器
+        let _ = env_logger::builder()
+            .filter_level(log::LevelFilter::Info)
+            .try_init();
+
         println!("=== RMail 邮件获取演示 ===\n");
 
         // 加载配置
