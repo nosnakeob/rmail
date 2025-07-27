@@ -1,0 +1,57 @@
+# RMail 邮箱配置文件示例
+# 复制此文件为 config.toml 并填入你的邮箱信息
+
+[email]
+# 邮箱账户信息
+username = "your_email@example.com"
+password = "your_password"
+
+[imap]
+# IMAP 服务器配置
+server = "imap.example.com"
+port = 993
+use_tls = true
+
+[smtp]
+# SMTP 服务器配置
+server = "smtp.example.com"
+port = 587
+use_tls = true
+
+# 可选：发件人显示名称
+from_name = "RMail 用户"
+
+# 常见邮箱服务商配置示例：
+
+# Gmail:
+# [email]
+# username = "your_email@gmail.com"
+# password = "your_app_password"  # 需要使用应用专用密码
+# [imap]
+# server = "imap.gmail.com"
+# port = 993
+# [smtp]
+# server = "smtp.gmail.com"
+# port = 587
+
+# Outlook/Hotmail:
+# [email]
+# username = "your_email@outlook.com"
+# password = "your_password"
+# [imap]
+# server = "outlook.office365.com"
+# port = 993
+# [smtp]
+# server = "smtp-mail.outlook.com"
+# port = 587
+
+# QQ邮箱:
+# [email]
+# username = "your_email@qq.com"
+# password = "your_authorization_code"  # 需要使用授权码
+# [imap]
+# server = "imap.qq.com"
+# port = 993
+# [smtp]
+# server = "smtp.qq.com"
+# port = 587
